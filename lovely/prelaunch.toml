@@ -12,11 +12,22 @@ sources = ["prelaunch.lua"]
 [[patches]]
 [patches.pattern]
 target = "main.lua"
-pattern = "function love.load()"
-position = "after"
+pattern = "dofile('preload/states.lua')"
+position = "at"
+payload = "-- dofile('preload/states.lua') -- do it later to maybe prevent mod conflicts crashing the game"
+match_indent = true
+
+[[patches]]
+[patches.pattern]
+target = "main.lua"
+pattern = "cs = bs.load(project.initState)"
+position = "at"
 payload = '''
 if not launch then
-	return
+	cs = bs.load("Launcher")
+else
+	if bs.states.Menu == nil then dofile('preload/states.lua') end
+	cs = bs.load(project.initState) -- i'm scared this conflicts with the bbp mod loading
 end
 '''
 match_indent = true
