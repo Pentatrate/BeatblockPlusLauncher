@@ -126,20 +126,13 @@ st:setUpdate(function(self, dt)
 			end
 
 			love.window.close()
-			self.timer = 20
 			self.doRelaunch = nil
+			os.execute(self.command)
+			love.event.quit()
 		else -- nothing much changed, no need to restart
 			if bs.states.Menu == nil then dofile('preload/states.lua') end
 			cs = bs.load(project.initState)
 			cs:init()
-		end
-	end
-	if self.timer then
-		self.timer = self.timer - dt
-		if self.timer <= 0 then
-			self.timer = nil
-			os.execute(self.command)
-			love.event.quit()
 		end
 	end
 end)

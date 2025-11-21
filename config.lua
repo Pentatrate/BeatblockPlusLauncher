@@ -9,7 +9,15 @@ mod.config.useBeatblockPlusStyle = helpers.InputBool("Use BBP style in launcher"
 
 imgui.Separator()
 
-if bs.states.Launcher and imgui.Button("Open Launcher") then
-	cs = bs.load("Launcher")
-	cs:init()
+if bs.states.Launcher then
+	if imgui.Button("Open Launcher") then
+		cs = bs.load("Launcher")
+		cs:init()
+	end
+	imgui.SameLine()
+	if imgui.Button("Relaunch") then
+		cs = bs.load("Launcher")
+		cs.doRelaunch = {}
+		cs:init()
+	end
 end
