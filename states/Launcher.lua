@@ -138,6 +138,9 @@ st:setUpdate(function(self, dt)
 end)
 
 st:setFgDraw(function(self)
+	shuv.resetPal()
+	color(1)
+	love.graphics.rectangle('fill', 0, 0, 600, 360)
 	if mods["beatblock-plus-launcher"].config.useBeatblockPlusStyle then bbp.gui.pushStyle() end
 
 	helpers.SetNextWindowPos(0, 0, "ImGuiCond_Always")
