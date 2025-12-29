@@ -75,6 +75,8 @@ st:setInit(function(self)
 			return a.version < b.version
 		end
 	end)
+
+	love.mouse.setVisible(true)
 end)
 
 st:setUpdate(function(self, dt)
@@ -131,6 +133,11 @@ st:setUpdate(function(self, dt)
 			love.event.quit()
 		else -- nothing much changed, no need to restart
 			if bs.states.Menu == nil then dofile('preload/states.lua') end
+			if savedata.options.game.customCursorInMenu and (savedata.options.game.cursorMode ~= "default") then
+				love.mouse.setVisible(false)
+			else
+				love.mouse.setVisible(true)
+			end
 			cs = bs.load(project.initState)
 			cs:init()
 		end
