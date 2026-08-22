@@ -24,6 +24,10 @@ end
 function st:reloadModList()
 	self.modList = {}
 	for _, v in pairs(mods) do if st.checkValid(v.id) then table.insert(self.modList, v) end end
+	self:sortModList()
+end
+
+function st:sortModList()
 	table.sort(self.modList, function(a, b)
 		if self.getModEnabled(a) ~= self.getModEnabled(b) then
 			return self.getModEnabled(a)
@@ -50,31 +54,20 @@ st:setInit(function(self)
 	self.size = 1
 	self.command = ""
 	mods["beatblock-plus-launcher"].config.currentProfile = mods["beatblock-plus-launcher"].config.currentProfile or "Enable All"
-
-	self.modList = {}
-	for _, v in pairs(mods) do if st.checkValid(v.id) then table.insert(self.modList, v) end end
-
 	mods["beatblock-plus-launcher"].config.profiles = mods["beatblock-plus-launcher"].config.profiles or {}
 	if mods["beatblock-plus-launcher"].config.profiles["Enable All"] == nil then
 		mods["beatblock-plus-launcher"].config.profiles["Enable All"] = {}
 	end
+
+	st:reloadModList()
+
 	for i, mod in ipairs(self.modList) do
 		for k, v in pairs(mods["beatblock-plus-launcher"].config.profiles) do
 			if v[mod.id] == nil then v[mod.id] = k == "Enable All" and true or mod.enabled end
 		end
 	end
 
-	table.sort(self.modList, function(a, b)
-		if a.enabled ~= b.enabled then
-			return a.enabled
-		elseif a.name:lower() ~= b.name:lower() then
-			return a.name:lower() < b.name:lower()
-		elseif a.author:lower() ~= b.author:lower() then
-			return a.author:lower() < b.author:lower()
-		else
-			return a.version < b.version
-		end
-	end)
+	self:sortModList()
 
 	love.mouse.setVisible(true)
 end)
