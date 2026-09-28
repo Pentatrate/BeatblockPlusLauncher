@@ -49,6 +49,62 @@ function st.getModEnabled(mod)
 	return mods["beatblock-plus-launcher"].config.profiles[mods["beatblock-plus-launcher"].config.currentProfile][mod.id]
 end
 
+function st:tabBar()
+	local function keysToValues(t)
+		local r = {}
+		for k, _ in pairs(t) do table.insert(r, k) end
+		return r
+	end
+	local tabs = keysToValues(mods["beatblock-plus-launcher"].config.profiles)
+	table.sort(tabs)
+	for _, name in ipairs(tabs) do
+		local data = mods["beatblock-plus-launcher"].config.profiles[name]
+		if name ~= "Create Profile" then
+			local notDeleted = ffi.new("bool[1]", { true })
+			if imgui.BeginTabItem(name, name ~= "Enable All" and notDeleted or nil, self.initing and mods["beatblock-plus-launcher"].config.currentProfile == name and imgui.ImGuiTabItemFlags_SetSelected or 0) then
+				if name ~= "Enable All" then
+					local v = ffi.new("char[?]", 2 ^ 16)
+					ffi.copy(v, name, #name)
+					imgui.SetNextItemWidth(-1e-9)
+					imgui.InputText("##profileName", v, 2 ^ 16, imgui.ImGuiInputTextFlags_AutoSelectAll)
+					if imgui.IsItemDeactivatedAfterEdit() and name ~= ffi.string(v) and not ({ ["Enable All"] = true, ["New Profile"] = true, ["Create Profile"] = true })[ffi.string(v)] and mods["beatblock-plus-launcher"].config.profiles[ffi.string(v)] == nil then
+						mods["beatblock-plus-launcher"].config.profiles[ffi.string(v)] = data
+						mods["beatblock-plus-launcher"].config.profiles[name] = nil
+						mods["beatblock-plus-launcher"].config.currentProfile = ffi.string(v)
+						name = ffi.string(v)
+						self:reloadModList()
+					end
+				end
+				if mods["beatblock-plus-launcher"].config.currentProfile ~= name then
+					mods["beatblock-plus-launcher"].config.currentProfile = name
+					self:reloadModList()
+				end
+				imgui.EndTabItem(name)
+			end
+			if name ~= "Enable All" and not notDeleted[0] then
+				mods["beatblock-plus-launcher"].config.profiles[name] = nil
+				if mods["beatblock-plus-launcher"].config.currentProfile == name then
+					mods["beatblock-plus-launcher"].config.currentProfile = "Enable All"
+					self:reloadModList()
+					self.justDeleted = true
+				end
+			end
+		end
+	end
+	-- need this to prevent tab deletion and instant recreation
+	if imgui.BeginTabItem("Enable All", nil, imgui.ImGuiTabItemFlags_Leading + (self.justDeleted and imgui.ImGuiTabItemFlags_SetSelected or 0)) then
+		imgui.EndTabItem("Enable All")
+	end
+	if mods["beatblock-plus-launcher"].config.profiles["New Profile"] == nil and imgui.BeginTabItem("Create Profile", nil, imgui.ImGuiTabItemFlags_Trailing) then
+		if not self.justDeleted then
+			mods["beatblock-plus-launcher"].config.profiles["New Profile"] = {}
+			for i, mod in ipairs(self.modList) do mods["beatblock-plus-launcher"].config.profiles["New Profile"][mod.id] = true end
+		end
+		imgui.EndTabItem("Create Profile")
+	end
+	self.justDeleted = false
+end
+
 st:setInit(function(self)
 	self.initing = true
 	self.size = 1
@@ -145,88 +201,50 @@ st:setFgDraw(function(self)
 
 	helpers.SetNextWindowPos(0, 0, "ImGuiCond_Always")
 	helpers.SetNextWindowSize(1200, 720, "ImGuiCond_Always")
-	if imgui.Begin("Launcher", true, bit.bor(imgui.ImGuiWindowFlags_NoMove, imgui.ImGuiWindowFlags_NoResize, imgui.ImGuiWindowFlags_NoTitleBar)) then
-		local buttons = {}
-		if mods["beatblock-plus-launcher"].config.showVanilla then table.insert(buttons, { "Launch Vanilla", { ["--launch"] = true, ["--disable-mods"] = true } }) end
-		if mods["beatblock-plus-launcher"].config.showConsole then table.insert(buttons, { "Launch with console", { ["--launch"] = true } }) end
-		if mods["beatblock-plus-launcher"].config.showConsoleless then table.insert(buttons, { "Launch without console", { ["--launch"] = true, ["--disable-console"] = true } }) end
-		if mods["beatblock-plus-launcher"].config.showRelaunch then table.insert(buttons, { "Restart Launcher", {} }) end
+	imgui.Begin("Launcher", true, bit.bor(imgui.ImGuiWindowFlags_NoMove, imgui.ImGuiWindowFlags_NoResize, imgui.ImGuiWindowFlags_NoTitleBar))
 
-		local width = (imgui.GetContentRegionAvail().x - imgui.GetStyle().ItemSpacing.x * (#buttons - 1)) / #buttons
-		for i = 1, #buttons do
-			if i ~= 1 then imgui.SameLine() end
-			local label = buttons[i][1]
-			local args = buttons[i][2]
-			if imgui.Button(label, imgui.ImVec2_Float(width, 33 * self.size + imgui.GetStyle().ItemSpacing.y)) then self.doRelaunch = args end
-		end
+	local buttons = {}
+	if mods["beatblock-plus-launcher"].config.showVanilla then table.insert(buttons, { "Launch Vanilla", { ["--launch"] = true, ["--disable-mods"] = true } }) end
+	if mods["beatblock-plus-launcher"].config.showConsole then table.insert(buttons, { "Launch with console", { ["--launch"] = true } }) end
+	if mods["beatblock-plus-launcher"].config.showConsoleless then table.insert(buttons, { "Launch without console", { ["--launch"] = true, ["--disable-console"] = true } }) end
+	if mods["beatblock-plus-launcher"].config.showRelaunch then table.insert(buttons, { "Restart Launcher", {} }) end
 
-		if imgui.BeginTabBar("beatblockPlusLauncherProfiles", imgui.ImGuiTabBarFlags_AutoSelectNewTabs + imgui.ImGuiTabBarFlags_Reorderable) then
-			for name, data in pairs(mods["beatblock-plus-launcher"].config.profiles) do
-				if name ~= "Create Profile" then
-					local notDeleted = ffi.new("bool[1]", { true })
-					if imgui.BeginTabItem(name, name ~= "Enable All" and notDeleted or nil, self.initing and mods["beatblock-plus-launcher"].config.currentProfile == name and imgui.ImGuiTabItemFlags_SetSelected or 0) then
-						if name ~= "Enable All" then
-							local v = ffi.new("char[?]", 2 ^ 16)
-							ffi.copy(v, name, #name)
-							imgui.SetNextItemWidth(-1e-9)
-							imgui.InputText("##profileName", v, 2 ^ 16, imgui.ImGuiInputTextFlags_AutoSelectAll)
-							if imgui.IsItemDeactivatedAfterEdit() and name ~= ffi.string(v) and not ({ ["Enable All"] = true, ["New Profile"] = true, ["Create Profile"] = true })[ffi.string(v)] and mods["beatblock-plus-launcher"].config.profiles[ffi.string(v)] == nil then
-								mods["beatblock-plus-launcher"].config.profiles[ffi.string(v)] = data
-								mods["beatblock-plus-launcher"].config.profiles[name] = nil
-								mods["beatblock-plus-launcher"].config.currentProfile = ffi.string(v)
-								name = ffi.string(v)
-								self:reloadModList()
-							end
-						end
-						if mods["beatblock-plus-launcher"].config.currentProfile ~= name then
-							mods["beatblock-plus-launcher"].config.currentProfile = name
-							self:reloadModList()
-						end
-						imgui.EndTabItem(name)
-					end
-					if name ~= "Enable All" and not notDeleted[0] then
-						mods["beatblock-plus-launcher"].config.profiles[name] = nil
-						if mods["beatblock-plus-launcher"].config.currentProfile == name then
-							mods["beatblock-plus-launcher"].config.currentProfile = "Enable All"
-							self:reloadModList()
-							self.justDeleted = true
-						end
-					end
-				end
-			end
-			if imgui.BeginTabItem("Enable All", nil, imgui.ImGuiTabItemFlags_Leading + (self.justDeleted and imgui.ImGuiTabItemFlags_SetSelected or 0)) then imgui.EndTabItem("Enable All") end -- need this to prevent tab deletion and instant recreation
-			if mods["beatblock-plus-launcher"].config.profiles["New Profile"] == nil and imgui.BeginTabItem("Create Profile", nil, imgui.ImGuiTabItemFlags_Trailing) then
-				if not self.justDeleted then
-					mods["beatblock-plus-launcher"].config.profiles["New Profile"] = {}
-					for i, mod in ipairs(self.modList) do mods["beatblock-plus-launcher"].config.profiles["New Profile"][mod.id] = true end
-				end
-				imgui.EndTabItem("Create Profile")
-			end
-			self.justDeleted = false
-		end
-
-		for i, mod in ipairs(self.modList) do
-			if not self.getModEnabled(mod) then
-				imgui.PushStyleColor_Vec4(imgui.ImGuiCol_Button, imgui.ImVec4_Float(0.25, 0, 0, 1))
-				imgui.PushStyleColor_Vec4(imgui.ImGuiCol_ButtonHovered, imgui.ImVec4_Float(0.35, 0, 0, 1))
-				imgui.PushStyleColor_Vec4(imgui.ImGuiCol_ButtonActive, imgui.ImVec4_Float(0.5, 0, 0, 1))
-			end
-			imgui.PushStyleColor_Vec4(imgui.ImGuiCol_Button, imgui.ImVec4_Float(0, 0, 0, 0))
-			local pressed = imgui.ImageButton("##imageButton" .. i, mod.icon or sprites.bbp.missing, imgui.ImVec2_Float(73 * self.size, 33 * self.size))
-			if mods["beatblock-plus-launcher"].config.currentProfile == "Enable All" then imgui.SetItemTooltip("Profile doesnt allow toggling") end
-			imgui.PopStyleColor(1)
-			imgui.SameLine()
-			local pressed2 = imgui.Button(mod.name .. " (" .. mod.version .. ") by " .. mod.author .. "\n" .. mod.description .. "##".. i, imgui.ImVec2_Float(-1e-9, 33 * self.size + imgui.GetStyle().ItemSpacing.y))
-			if mods["beatblock-plus-launcher"].config.currentProfile == "Enable All" then imgui.SetItemTooltip("Profile doesnt allow toggling") end
-			if not self.getModEnabled(mod) then imgui.PopStyleColor(3) end
-
-			if mods["beatblock-plus-launcher"].config.currentProfile ~= "Enable All" and (pressed or pressed2) then
-				mods["beatblock-plus-launcher"].config.profiles[mods["beatblock-plus-launcher"].config.currentProfile][mod.id] = not self.getModEnabled(mod)
-				self:reloadModList()
-			end
-		end
-		imgui.End()
+	local width = (imgui.GetContentRegionAvail().x - imgui.GetStyle().ItemSpacing.x * (#buttons - 1)) / #buttons
+	for i = 1, #buttons do
+		if i ~= 1 then imgui.SameLine() end
+		local label = buttons[i][1]
+		local args = buttons[i][2]
+		if imgui.Button(label, imgui.ImVec2_Float(width, 33 * self.size + imgui.GetStyle().ItemSpacing.y)) then self.doRelaunch = args end
 	end
+
+	if imgui.BeginTabBar("beatblockPlusLauncherProfiles", imgui.ImGuiTabBarFlags_AutoSelectNewTabs) then
+		st:tabBar()
+		imgui.EndTabBar()
+	end
+
+	for i, mod in ipairs(self.modList) do
+		if not self.getModEnabled(mod) then
+			imgui.PushStyleColor_Vec4(imgui.ImGuiCol_Button, imgui.ImVec4_Float(0.25, 0, 0, 1))
+			imgui.PushStyleColor_Vec4(imgui.ImGuiCol_ButtonHovered, imgui.ImVec4_Float(0.35, 0, 0, 1))
+			imgui.PushStyleColor_Vec4(imgui.ImGuiCol_ButtonActive, imgui.ImVec4_Float(0.5, 0, 0, 1))
+		end
+		imgui.PushStyleColor_Vec4(imgui.ImGuiCol_Button, imgui.ImVec4_Float(0, 0, 0, 0))
+		local pressed = imgui.ImageButton("##imageButton" .. i, mod.icon or sprites.bbp.missing, imgui.ImVec2_Float(73 * self.size, 33 * self.size))
+		if mods["beatblock-plus-launcher"].config.currentProfile == "Enable All" then imgui.SetItemTooltip("Profile doesnt allow toggling") end
+		imgui.PopStyleColor(1)
+		imgui.SameLine()
+		local pressed2 = imgui.Button(mod.name .. " (" .. mod.version .. ") by " .. mod.author .. "\n" .. mod.description .. "##".. i, imgui.ImVec2_Float(-1e-9, 33 * self.size + imgui.GetStyle().ItemSpacing.y))
+		if mods["beatblock-plus-launcher"].config.currentProfile == "Enable All" then imgui.SetItemTooltip("Profile doesnt allow toggling") end
+		if not self.getModEnabled(mod) then imgui.PopStyleColor(3) end
+
+		if mods["beatblock-plus-launcher"].config.currentProfile ~= "Enable All" and (pressed or pressed2) then
+			mods["beatblock-plus-launcher"].config.profiles[mods["beatblock-plus-launcher"].config.currentProfile][mod.id] = not self.getModEnabled(mod)
+			self:reloadModList()
+		end
+	end
+
+	imgui.End()
+
 	if mods["beatblock-plus-launcher"].config.useBeatblockPlusStyle then bbp.gui.popStyle() end
 
 	self.initing = nil
